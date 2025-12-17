@@ -1,0 +1,137 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  telegramId BigInt   @unique
+  firstName  String?
+  lastName   String?
+  username   String?
+  createdAt  DateTime @default(now())
+
+  masterProfile MasterProfile?
+  bookings      Booking[]
+  reviews       Review[]
+}
+
+model MasterProfile {
+  id          Int     @id @default(autoincrement())
+  userId      Int     @unique
+  name        String
+  photoUrl    String?
+  description String?
+  isActive    Boolean @default(true)
+
+  rating       Float @default(0)
+  reviewsCount Int   @default(0)
+
+  user         User          @relation(fields: [userId], references: [id])
+  queues       Queue[]
+  services     Service[]
+  bookings     Booking[]
+  subscription Subscription?
+
+  createdAt DateTime @default(now())
+  reviews   Review[]
+}
+
+model Queue {
+  id        Int    @id @default(autoincrement())
+  masterId  Int
+  name      String // Утро / Вечер
+  workDays  Int[] // [1,2,3,4,5]
+  startHour Int // 9
+  endHour   Int // 18
+
+  master   MasterProfile @relation(fields: [masterId], references: [id])
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+}
+
+model Service {
+  id          Int     @id @default(autoincrement())
+  masterId    Int
+  name        String
+  durationMin Int
+  price       Int // в минимальной валюте (копейки / центы)
+  isActive    Boolean @default(true)
+
+  master   MasterProfile @relation(fields: [masterId], references: [id])
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+}
+
+model Booking {
+  id        Int @id @default(autoincrement())
+  masterId  Int
+  userId    Int
+  serviceId Int
+  queueId   Int
+
+  startTime DateTime
+  endTime   DateTime
+
+  status BookingStatus @default(SCHEDULED)
+
+  master  MasterProfile @relation(fields: [masterId], references: [id])
+  user    User          @relation(fields: [userId], references: [id])
+  service Service       @relation(fields: [serviceId], references: [id])
+  queue   Queue         @relation(fields: [queueId], references: [id])
+
+  createdAt DateTime @default(now())
+  review    Review?
+}
+
+enum BookingStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model Review {
+  id        Int @id @default(autoincrement())
+  masterId  Int
+  userId    Int
+  bookingId Int @unique
+
+  rating  Int // 1–5
+  comment String?
+
+  master  MasterProfile @relation(fields: [masterId], references: [id])
+  user    User          @relation(fields: [userId], references: [id])
+  booking Booking       @relation(fields: [bookingId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Subscription {
+  id       Int @id @default(autoincrement())
+  masterId Int @unique
+
+  status    SubscriptionStatus
+  expiresAt DateTime?
+
+  master MasterProfile @relation(fields: [masterId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  EXPIRED
+}
